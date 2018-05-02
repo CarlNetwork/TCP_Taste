@@ -6,11 +6,17 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
+void
+Display_Sock_Peer_Name(int sockfd);
+void
+Child_Done(int connfd);
+
 int
 main(int argc, char *argv[])
 {
-	int listenfd;
+	int listenfd, connfd;
 	struct sockaddr_in servaddr;
+	pid_t child_pid;
 /***************************************************************/
 	if( argc != 1 ){
 		printf("Format:%s\n",argv[0]);
@@ -37,10 +43,6 @@ main(int argc, char *argv[])
 		printf("error:listen failed\n");
 		exit(-1);
 	} 
-	int connfd;
-	struct sockaddr_in sockname,peername;
-	socklen_t socklen,peerlen;
-	char sockipstr[16],peeripstr[16];
 
 	for(;;){
 		printf("start accept......\n");
@@ -53,29 +55,69 @@ main(int argc, char *argv[])
 		}
 
 		/*********************************************/
-		
-	
-		socklen = sizeof(sockname);
-		peerlen = sizeof(peername);
-		if( getsockname(connfd, (struct sockaddr *)&sockname, &socklen) < 0 ){
-			printf("getsockname failed\n");
-			exit(-1);
+		Display_Sock_Peer_Name(connfd);
+		child_pid = fork();
+		switch( child_pid ){
+			case -1:{//error
+					printf("fork failed\n");
+					exit(-1);			
+				}break;
+			case 0:{//child
+					close(listenfd);
+					Child_Done(connfd);
+					close(connfd);
+					exit(0);  //kill the child		
+				}break;
+			default:sleep(1);break;   //father
 		}
-		if( getpeername(connfd, (struct sockaddr *)&peername, &peerlen) < 0 ){
-			printf("getpeername failed\n");
-			exit(-1);
-		}	
-		if( inet_ntop(AF_INET, &sockname.sin_addr, sockipstr, sizeof(sockipstr) ) == NULL){
-			printf("inet_ntop sockname failed\n");
-			exit(-1);
-		}
-		if( inet_ntop(AF_INET, &peername.sin_addr, peeripstr, sizeof(peeripstr)) == NULL){
-			printf("inet_ntop peername failed\n");
-			exit(-1);
-		}
-		printf("getsockname:ip:%s\tport%d\n",sockipstr,ntohs(sockname.sin_port));
-		printf("getpeername:ip:%s\tport%d\n",peeripstr,ntohs(peername.sin_port));
 		close(connfd);			
 	}
 			
+}
+
+char recline[1024];
+void
+Child_Done(int connfd)
+{
+	int r_byte, w_byte, count;
+	count = 1024;
+	r_byte = read(connfd, recline, count);
+	if( r_byte < 0 ){
+		printf("read error\n");
+		exit(-1);
+	}
+	w_byte = write(connfd, recline, strlen(recline));
+	if( w_byte < 0 ){
+		printf("write error\n");
+		exit(-1);
+	}
+}
+void
+Display_Sock_Peer_Name(int sockfd)
+{
+	struct sockaddr_in sockname,peername;
+	socklen_t socklen,peerlen;
+	char sockipstr[16],peeripstr[16];
+
+	socklen = sizeof(sockname);
+	peerlen = sizeof(peername);
+	if( getsockname(sockfd, (struct sockaddr *)&sockname, &socklen) < 0 ){
+		printf("getsockname failed\n");
+		exit(-1);
+	}
+	if( getpeername(sockfd, (struct sockaddr *)&peername, &peerlen) < 0 ){
+		printf("getpeername failed\n");
+		exit(-1);
+	}
+	
+	if( inet_ntop(AF_INET, &sockname.sin_addr, sockipstr, sizeof(sockipstr) ) == NULL){
+		printf("inet_ntop sockname failed\n");
+		exit(-1);
+	}
+	if( inet_ntop(AF_INET, &peername.sin_addr, peeripstr, sizeof(peeripstr)) == NULL){
+		printf("inet_ntop peername failed\n");
+		exit(-1);
+	}
+	printf("getsockname:ip:%s\tport%d\n",sockipstr,ntohs(sockname.sin_port));
+	printf("getpeername:ip:%s\tport%d\n",peeripstr,ntohs(peername.sin_port));
 }

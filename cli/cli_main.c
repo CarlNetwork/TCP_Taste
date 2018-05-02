@@ -1,9 +1,21 @@
-/*version 01*/
+/*
+*version 02
+*add the I/O
+*add the fork()
+*/
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
+
+int 
+Do_Something(FILE *fp, int sockfd);
+void
+Display_Sock_Peer_Name(int sockfd);
+
+char buff[1024], recevline[1024];
 
 int
 main(int argc, char *argv[])
@@ -45,6 +57,40 @@ main(int argc, char *argv[])
 		printf("connect successful\n");
 	}
 	/*******************************************************************/
+	Display_Sock_Peer_Name(sockfd);
+	Do_Something(stdin, sockfd);
+	exit(0);
+			
+}
+
+int 
+Do_Something(FILE *fp, int sockfd)
+{
+	int w_byte, r_byte, count;
+	if( fgets(buff, sizeof(buff)+1, fp) != NULL ){
+		w_byte = write(sockfd, buff, strlen(buff));
+		if( w_byte < 0 ){
+			printf("write failed\n");
+			exit(-1);
+		}else{
+			count = strlen(buff);
+			do{
+				r_byte = read(sockfd, recevline, count);
+				count -= r_byte;
+			}
+			while( r_byte > 0 );
+			if( fputs(recevline, stdout) == EOF ){
+				printf("fputs failed\n");
+				exit(-1);
+			}
+		}
+	}
+	return 0;  //successful
+}
+
+void
+Display_Sock_Peer_Name(int sockfd)
+{
 	struct sockaddr_in sockname,peername;
 	socklen_t socklen,peerlen;
 	char sockipstr[16],peeripstr[16];
@@ -70,6 +116,4 @@ main(int argc, char *argv[])
 	}
 	printf("getsockname:ip:%s\tport%d\n",sockipstr,ntohs(sockname.sin_port));
 	printf("getpeername:ip:%s\tport%d\n",peeripstr,ntohs(peername.sin_port));
-	exit(0);
-			
 }
