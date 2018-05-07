@@ -5,11 +5,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+
+typedef void Fun_Sig(int);
 
 void
 Display_Sock_Peer_Name(int sockfd);
 void
 Child_Done(int connfd);
+void 
+SIGCHLD_handler_wait(int sig);
+void 
+SIGCHLD_handler_waitpid(int sig);
+Fun_Sig *
+Signal(int sig, Fun_Sig *hanlder);
 
 int
 main(int argc, char *argv[])
@@ -43,19 +54,27 @@ main(int argc, char *argv[])
 		printf("error:listen failed\n");
 		exit(-1);
 	} 
+	
+	Signal(SIGCHLD, &SIGCHLD_handler_waitpid);
 
 	for(;;){
 		printf("start accept......\n");
-		connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
-		if( connfd < 0 ){
-			printf("accept faild\n");
-			exit(-1);
-		}else{
-			printf("accept successful\n");
+		if( connfd = accept(listenfd, (struct sockaddr *)NULL, NULL) < 0 ){
+			if( errno == EINTR ){
+				printf("accept EINTR\n");				
+				continue;
+			}
+				
+			else{
+				printf("accept faild\n");
+				exit(-1);
+			}
 		}
+		
+		printf("accept successful\n");
 
 		/*********************************************/
-		Display_Sock_Peer_Name(connfd);
+		//Display_Sock_Peer_Name(connfd);
 		child_pid = fork();
 		switch( child_pid ){
 			case -1:{//error
@@ -73,6 +92,64 @@ main(int argc, char *argv[])
 		close(connfd);			
 	}
 			
+}
+
+Fun_Sig *
+Signal(int sig, Fun_Sig *handler)
+{
+	struct sigaction sigc, oldsigc;
+	sigset_t sigmask;
+
+	sigemptyset(&sigmask);
+	
+	sigc.sa_handler = handler;
+	sigc.sa_mask = sigmask;
+	sigc.sa_flags = 0;
+	if( sig == SIGALRM ){
+#ifdef SA_INTERRUPT
+		sigc.sa_flags |= SA_INTERRUPT;
+#endif	
+	}else{
+#ifdef SA_RESTART
+		sigc.sa_flags |= SA_RESTART;
+#endif
+	}
+	if( sigaction(sig, &sigc, &oldsigc) < 0 ){
+		printf("sigaction error\n");
+		exit(-1);
+	}
+	return oldsigc.sa_handler;
+}
+
+void 
+SIGCHLD_handler_wait(int sig)
+{
+	pid_t pid;
+	int stat;
+
+	pid = wait(&stat);
+	printf("child %d have died!\n",pid);  //
+
+	return ; 	
+}
+
+void
+SIGCHLD_handler_waitpid(int sig)
+{
+	pid_t pid;
+	int status;
+	int save_errno;
+
+	save_errno = errno;
+	while( pid = waitpid(-1, &status, WNOHANG) > 0 )
+		continue;
+
+	if( (pid == -1) && (errno != ECHILD) ){
+		perror("waitpid error");
+		exit(-1);	
+	}
+
+	errno = save_errno;
 }
 
 char recline[1024];
