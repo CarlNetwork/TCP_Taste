@@ -73,7 +73,7 @@ Do_Something(FILE *fp, int sockfd)
 {
 	int w_byte ,r_byte, count;
 	if( fgets(buff, sizeof(buff)+1, fp) != NULL ){
-		buff[strlen(buff)] = '\0';
+		buff[strlen(buff)] = -1;
 		//printf("buff = %s\n",buff);
 		//printf("fgets return\nbuff = %d\n",(int)strlen(buff));
 		if( (w_byte = Write(sockfd, buff, strlen(buff))) < 0){

@@ -24,8 +24,6 @@ SIGCHLD_handler_waitpid(int sig);
 Fun_Sig *
 Signal(int sig, Fun_Sig *hanlder);
 
-char recline[MAXBUFFSIZE];
-
 int
 main(int argc, char *argv[])
 {
@@ -165,17 +163,17 @@ SIGCHLD_handler_waitpid(int sig)
 	return ;
 }
 
-
+char recline[1024];
 void
 Child_Done(int connfd)
 {
 	size_t n;
 	n  = 0;
 lab:
-	while( (n = read(connfd, recline, MAXBUFFSIZE) ) > 0 ){
-		//printf("n = %d\n",(int)n);
+	while( (n = read(connfd, recline, 1024) ) > 0 ){
+		printf("n = %d\n",(int)n);
 		Write(connfd, recline, n);
-		//printf("n = %d\n",(int)n);
+		printf("n = %d\n",(int)n);
 	}
 	if( n < 0 && errno == EINTR){
 		goto lab;
