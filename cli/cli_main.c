@@ -13,7 +13,8 @@
 #include <errno.h>
 #include "mylib.h"
 
-
+int
+cli_much_input(FILE *fp, int sockfd);
 int 
 Do_Something(FILE *fp, int sockfd);
 void
@@ -54,7 +55,7 @@ main(int argc, char *argv[])
 	bind();
 #endif
 
-	if( connect(sockfd,(struct sockaddr *)&servaddr, sizeof(servaddr)) < 0){
+	if( connect(sockfd,(struct sockaddr *)&servaddr, sizeof(servaddr)) != 0){
 		perror("connect error");
 		close(sockfd);  //
 		exit(-1);
@@ -62,17 +63,72 @@ main(int argc, char *argv[])
 		printf("connect successful\n");
 	}
 	/*******************************************************************/
+	sleep(1);
+	
 	Display_Sock_Peer_Name(sockfd);
-	Do_Something(stdin, sockfd);
+	//Do_Something(stdin, sockfd);
+	
+	cli_much_input(stdin, sockfd);
+	
 	exit(0);
 			
+}
+
+int
+cli_much_input(FILE *fp, int sockfd)
+{
+	int r_byte, w_byte;
+	char getsbuff[MAXBUFFSIZE], recvbuff[MAXBUFFSIZE];
+	
+	bzero(getsbuff, sizeof(getsbuff));
+	while((r_byte = read(STDIN_FILENO, getsbuff, MAXBUFFSIZE)) > 0){
+	//r_byte <=0
+
+		if((w_byte = write(sockfd, getsbuff, r_byte)) < 0){
+        	        perror("write error");
+                	exit(-1);
+        	}
+		bzero(getsbuff, sizeof(getsbuff));
+#if 0
+		if( r_byte == 0 ){
+			perror("serv close");
+			exit(-1);	
+		}else{
+			if( errno == EINTR ){
+				continue;
+			}
+			perror("read error");
+			exit(-1);
+		}
+#endif
+	}
+//	printf("read1\n");
+//	if((w_byte = write(sockfd, getsbuff, r_byte)) < 0){
+//		perror("write error");
+//		exit(-1);
+//	}
+
+ 	if( r_byte == 0 ){
+                perror("serv close or cli close");
+		shutdown(sockfd, SHUT_WR);
+ 
+        }
+	if(r_byte < 0){
+		perror("read error\n");
+		exit(-1);
+	}
+
+//	printf("write1\n");
+	bzero(recvbuff, sizeof(recvbuff));
+	read(sockfd, recvbuff, MAXBUFFSIZE);
+	write(STDOUT_FILENO, recvbuff, strlen(recvbuff));
 }
 
 int 
 Do_Something(FILE *fp, int sockfd)
 {
 	int w_byte ,r_byte, count;
-	if( fgets(buff, sizeof(buff)+1, fp) != NULL ){
+	if( fgets(buff, sizeof(buff)+1, fp) != NULL ){//xazzzzxxxxax
 		buff[strlen(buff)] = '\0';
 		//printf("buff = %s\n",buff);
 		//printf("fgets return\nbuff = %d\n",(int)strlen(buff));

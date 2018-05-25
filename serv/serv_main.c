@@ -29,7 +29,7 @@ char recline[MAXBUFFSIZE];
 int
 main(int argc, char *argv[])
 {
-	int listenfd, connfd;
+	int listenfd, connfd,fd;
 	struct sockaddr_in servaddr;
 	pid_t child_pid;
 /***************************************************************/
@@ -39,22 +39,33 @@ main(int argc, char *argv[])
 	}
 /***************************************************************/
 	listenfd = socket(PF_INET, SOCK_STREAM, 0);
+	fd = socket(PF_INET, SOCK_STREAM, 0);
 	if( listenfd < 0 ){
 		printf("error:socket failed!\n");
 		exit(-1);
 	} 
 	
 	int val = 1;
-        int ret = setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR,(void *)&val,sizeof(int));
+        int ret ;
+	ret= setsockopt(listenfd,SOL_SOCKET,SO_REUSEADDR,(void *)&val,sizeof(int));
       	if(ret == -1)
       	{
        	  printf("setsockopt");
        	  exit(1);
      	}    
+	setsockopt(fd,SOL_SOCKET,SO_REUSEADDR,(void *)&val,sizeof(int));
+	
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(1024);		//time port
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);  //*
+	//servaddr.sin_addr.s_addr = htonl(INADDR_ANY);  //*
+#if 1 
+	if( inet_pton(AF_INET, "192.168.47.128", &servaddr.sin_addr) < 0 ){
+		printf("inet error\n");
+		exit(-1);
+	}
+#endif
+	
 	if( bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0){
 		printf("error:bind failed\n");
 		perror("bind error");  //sudo 13
@@ -62,20 +73,18 @@ main(int argc, char *argv[])
 	}
 
 	if( listen(listenfd, 5) < 0 ){
-		printf("error:listen failed\n");
+		printf("error1:listen failed\n");
 		exit(-1);
 	} 
-	
 	Signal(SIGCHLD, &SIGCHLD_handler_waitpid);
 
 	for(;;){
 		printf("start accept......\n");
-		if( connfd = accept(listenfd, (struct sockaddr *)NULL, NULL) < 0 ){
+		if( (connfd = accept(listenfd, (struct sockaddr *)NULL, NULL)) < 0 ){
 			if( errno == EINTR ){
 				printf("accept EINTR\n");				
 				continue;
-			}
-				
+			}	
 			else{
 				printf("accept faild\n");
 				exit(-1);
@@ -85,7 +94,8 @@ main(int argc, char *argv[])
 		printf("accept successful\n");
 
 		/*********************************************/
-		//Display_Sock_Peer_Name(connfd);
+		Display_Sock_Peer_Name(connfd);
+#if 1
 		child_pid = fork();
 		switch( child_pid ){
 			case -1:{//error
@@ -100,7 +110,8 @@ main(int argc, char *argv[])
 				}break;
 			default:sleep(1);break;   //father
 		}
-		close(connfd);			
+		close(connfd);	
+#endif
 	}
 			
 }
